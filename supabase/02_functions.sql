@@ -93,8 +93,8 @@ language plpgsql stable set search_path = '' as $$
 declare
   v_item jsonb; v_p public.products; v_qty integer;
   v_lines jsonb := '[]'; v_list bigint := 0; v_sale bigint := 0;
-  v_coupon_discount bigint := 0; v_ship integer := 0; v_ship_status text;
-  v_basis_amount bigint; v_points integer := greatest(coalesce(p_points, 0), 0); v_balance integer := 0;
+  v_coupon_discount bigint := 0; v_ship integer := 0; v_ship_status text; v_final bigint;
+  v_points integer := greatest(coalesce(p_points, 0), 0); v_balance integer := 0;
   v_s public.shop_settings; v_c record;
 begin
   if p_items is null or jsonb_typeof(p_items) <> 'array' or jsonb_array_length(p_items) = 0 then
@@ -129,13 +129,11 @@ begin
   end if;
 
   select * into v_s from public.shop_settings where setting_id = 1;
-  v_basis_amount := case v_s.free_shipping_basis when 'list_price' then v_list when 'sale_price' then v_sale end;
-  if least(v_list, v_sale) >= v_s.free_shipping_threshold or v_basis_amount >= v_s.free_shipping_threshold then
+  -- Free shipping looks at what the customer actually pays, after coupon and points.
+  if v_sale - v_coupon_discount - v_points >= v_s.free_shipping_threshold then
     v_ship_status := 'free';
-  elsif v_s.default_shipping_fee is not null and v_basis_amount is not null then
-    v_ship_status := 'charged'; v_ship := v_s.default_shipping_fee;
   else
-    v_ship_status := 'undetermined';
+    v_ship_status := 'charged'; v_ship := v_s.default_shipping_fee;
   end if;
 
   if v_points > 0 then
@@ -145,22 +143,37 @@ begin
     if v_points > v_sale - v_coupon_discount + v_ship then raise exception '결제 금액보다 많은 적립금은 사용할 수 없습니다.'; end if;
   end if;
 
+  v_final := v_sale - v_coupon_discount + v_ship - v_points;
   return jsonb_build_object(
     'lines', v_lines, 'total_product_amount', v_list, 'sale_total', v_sale,
     'discount_amount', v_list - v_sale + v_coupon_discount, 'coupon_discount', v_coupon_discount,
     'shipping_fee', v_ship, 'shipping_fee_status', v_ship_status, 'points_used', v_points,
-    'final_amount', v_sale - v_coupon_discount + v_ship - v_points);
+    'final_amount', v_final,
+    'earned_points', case when p_user is null then 0 else v_final * v_s.point_earn_rate / 100 end);
 end $$;
 
 -- Not exposed to the API. Run from the SQL Editor to advance an order,
 -- e.g. select private.set_order_status('20261109-000001', 'shipping');
+-- Leaving pending_payment means the mock bank transfer arrived, so its points become usable.
 create or replace function private.set_order_status(p_order_number text, p_status text) returns void
 language plpgsql set search_path = '' as $$
+declare v_order bigint; v_user bigint; v_previous text; v_earned integer;
 begin
+  select order_id, user_id, order_status into v_order, v_user, v_previous
+  from public.orders where order_number = p_order_number for update;
+  if not found then raise exception 'order not found'; end if;
   update public.orders set order_status = p_status,
     delivered_at = case when p_status = 'delivered' then now() else null end
-  where order_number = p_order_number;
-  if not found then raise exception 'order not found'; end if;
+  where order_id = v_order;
+  if v_previous = 'pending_payment' and p_status <> 'pending_payment' then
+    update public.payments set pay_status = 'mock_paid', paid_at = now()
+    where order_id = v_order and pay_status = 'pending' and is_mock
+    returning earned_points into v_earned;
+    if v_user is not null and v_earned > 0 then
+      update public.point_transactions set point_status = 'available' where order_id = v_order and point_status = 'unavailable';
+      update public.users set points = points + v_earned where user_id = v_user;
+    end if;
+  end if;
 end $$;
 
 -- ========== auth ==========
@@ -245,19 +258,18 @@ language plpgsql stable security definer set search_path = '' as $$
 declare v_user bigint := private.require_user(p_token); v_u public.users; v_total bigint; v_next public.membership_grades;
 begin
   select * into v_u from public.users where user_id = v_user;
-  select coalesce(sum(pay.final_amount), 0) into v_total from public.payments pay join public.orders o using (order_id)
-  where o.user_id = v_user and pay.pay_status = 'paid' and not pay.is_mock;
+  v_total := private.recent_paid_amount(v_user);
   select * into v_next from public.membership_grades where min_purchase_amount > v_total order by min_purchase_amount limit 1;
   return jsonb_build_object(
     'user_id', v_u.user_id, 'login_id', v_u.login_id, 'name', v_u.name,
     'phone_landline', v_u.phone_landline, 'phone_mobile', v_u.phone_mobile, 'email', v_u.email,
     'address', v_u.address, 'birth_date', v_u.birth_date, 'points', v_u.points,
     'sms_opt_in', v_u.sms_opt_in, 'email_opt_in', v_u.email_opt_in, 'sns_provider', v_u.sns_provider,
-    'grade_name', (select grade_name from public.membership_grades where grade_code = v_u.grade_code),
+    -- Computed live: the 3-month window can lower a grade without any new payment.
+    'grade_name', (select grade_name from public.membership_grades where min_purchase_amount <= v_total order by min_purchase_amount desc limit 1),
     'next_grade_name', v_next.grade_name,
     'next_grade_remaining', case when v_next.grade_code is null then null else v_next.min_purchase_amount - v_total end,
-    'recent_3m_amount', (select coalesce(sum(pay.final_amount), 0) from public.payments pay join public.orders o using (order_id)
-      where o.user_id = v_user and pay.pay_status = 'paid' and not pay.is_mock and pay.paid_at >= now() - interval '3 months'),
+    'recent_3m_amount', v_total,
     'recent_3m_mock_amount', (select coalesce(sum(pay.final_amount), 0) from public.payments pay join public.orders o using (order_id)
       where o.user_id = v_user and pay.pay_status = 'mock_paid' and pay.paid_at >= now() - interval '3 months'),
     'coupon_count', (select count(*) from public.user_coupons where user_id = v_user and coupon_status = 'available' and (expires_at is null or expires_at > now())),
@@ -463,7 +475,16 @@ begin
   values ('MOCK-' || lpad(nextval('public.payment_number_seq')::text, 8, '0'), v_order, p_pay_method,
     case when v_is_transfer then 'pending' else 'mock_paid' end, true, case when v_is_transfer then null else v_now end,
     (v_q ->> 'total_product_amount')::integer, (v_q ->> 'discount_amount')::integer, (v_q ->> 'shipping_fee')::integer,
-    v_q ->> 'shipping_fee_status', (v_q ->> 'points_used')::integer, (v_q ->> 'final_amount')::integer, 0);
+    v_q ->> 'shipping_fee_status', (v_q ->> 'points_used')::integer, (v_q ->> 'final_amount')::integer, (v_q ->> 'earned_points')::integer);
+
+  -- A pending bank transfer keeps its points unavailable until set_order_status confirms it.
+  if (v_q ->> 'earned_points')::integer > 0 then
+    insert into public.point_transactions (user_id, order_id, amount, point_status, description)
+    values (v_user, v_order, (v_q ->> 'earned_points')::integer, case when v_is_transfer then 'unavailable' else 'available' end, '[테스트] 모의 결제 주문 적립');
+    if not v_is_transfer then
+      update public.users set points = points + (v_q ->> 'earned_points')::integer where user_id = v_user;
+    end if;
+  end if;
 
   if p_user_coupon is not null then
     update public.user_coupons set coupon_status = 'used', used_order_id = v_order where user_coupon_id = p_user_coupon and user_id = v_user;
@@ -522,7 +543,7 @@ begin
     'ordered_at', v_o.ordered_at, 'delivered_at', v_o.delivered_at, 'receiver_name', v_o.receiver_name,
     'receiver_phone', v_o.receiver_phone, 'receiver_address', v_o.receiver_address, 'delivery_message', v_o.delivery_message,
     'items', (select jsonb_agg(jsonb_build_object('product_name', i.product_name, 'image_url', i.image_url, 'size', i.size, 'color', i.color, 'quantity', i.quantity, 'unit_price', i.unit_price) order by i.order_item_id) from public.order_items i where i.order_id = v_o.order_id),
-    'payment', (select jsonb_build_object('pay_method', pay.pay_method, 'pay_status', pay.pay_status, 'is_mock', pay.is_mock, 'final_amount', pay.final_amount, 'shipping_fee_status', pay.shipping_fee_status) from public.payments pay where pay.order_id = v_o.order_id));
+    'payment', (select jsonb_build_object('pay_method', pay.pay_method, 'pay_status', pay.pay_status, 'is_mock', pay.is_mock, 'final_amount', pay.final_amount, 'shipping_fee', pay.shipping_fee, 'shipping_fee_status', pay.shipping_fee_status) from public.payments pay where pay.order_id = v_o.order_id));
 end $$;
 
 -- ========== activity / benefits (5 per page) ==========

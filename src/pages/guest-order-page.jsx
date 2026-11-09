@@ -1,7 +1,7 @@
 import { Navigate, useLocation } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import TestNotice from '../components/ui/test-notice.jsx';
-import { assetUrl, formatDate, formatOption, ORDER_STATUS_LABELS, PAY_METHOD_LABELS, shippingLabel, won } from '../utils/format.js';
+import { assetUrl, formatDate, formatOption, ORDER_STATUS_LABELS, PAY_METHOD_LABELS, shippingText, won } from '../utils/format.js';
 
 const rowSx = { display: 'grid', gridTemplateColumns: '160px 1fr', py: 1.25, borderBottom: '1px solid', borderColor: 'secondary.main' };
 
@@ -21,7 +21,7 @@ function GuestOrderPage() {
     ['주소', order.receiver_address],
     ['배송메시지', order.delivery_message ?? '-'],
     ['결제 수단', `${ PAY_METHOD_LABELS[order.payment.pay_method] } (모의)`],
-    ['배송비', shippingLabel(order.payment.shipping_fee_status) ?? '-'],
+    ['배송비', shippingText(order.payment)],
     ['최종 금액', won(order.payment.final_amount)],
   ];
 

@@ -32,8 +32,6 @@ export const CLAIM_LABELS = { cancel: '취소', exchange: '교환', return: '반
 /** 화면 표시용 계산. 실제 주문 금액은 서버(quote_order, create_order)가 다시 계산한다. */
 export const FREE_SHIPPING_THRESHOLD = 30000;
 
-export const shippingLabel = (status) => {
-  if (status === 'free') return '무료';
-  if (status === 'undetermined') return '미정';
-  return null;
-};
+export const SHIPPING_FEE = 2500;
+
+export const shippingText = ({ shipping_fee_status: status, shipping_fee: fee }) => (status === 'free' ? '무료' : won(fee));

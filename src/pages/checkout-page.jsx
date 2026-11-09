@@ -13,7 +13,7 @@ import SoftField from '../components/ui/soft-field.jsx';
 import TestNotice from '../components/ui/test-notice.jsx';
 import { useShop } from '../hooks/use-shop.js';
 import { createOrder, listUsableCoupons, quoteOrder } from '../utils/api.js';
-import { assetUrl, formatOption, PAY_METHOD_LABELS, shippingLabel, won } from '../utils/format.js';
+import { assetUrl, formatOption, PAY_METHOD_LABELS, shippingText, won } from '../utils/format.js';
 import { getCheckoutDraft, setCheckoutDraft } from '../utils/storage.js';
 
 const sectionTitleSx = { fontSize: 20, fontWeight: 700, mt: 5, mb: 1.5, pb: 1.5, borderBottom: '2px solid #333' };
@@ -172,14 +172,13 @@ function CheckoutPage() {
           { sumRow('총 상품금액', won(quote.total_product_amount)) }
           { sumRow('할인 금액', `- ${ won(quote.discount_amount) }`) }
           { sumRow('적립금 사용', `- ${ won(quote.points_used) }`) }
-          { sumRow('배송비', shippingLabel(quote.shipping_fee_status) ?? won(quote.shipping_fee)) }
+          { sumRow('배송비', shippingText(quote)) }
           <Box sx={ { display: 'flex', justifyContent: 'space-between', fontSize: 22, fontWeight: 700, borderTop: '1px solid #333', pt: 2, mt: 2 } }>
             <Box>최종 금액</Box>
             <Box>{ won(quote.final_amount) }</Box>
           </Box>
-          { quote.shipping_fee_status === 'undetermined' && (
-            <Box sx={ { mt: 1, fontSize: 12, color: '#777' } }>30,000원 미만 주문의 배송비 정책이 아직 정해지지 않아 금액에 포함하지 않았습니다.</Box>
-          ) }
+          { user && <Box sx={ { mt: 1.25, textAlign: 'right', fontSize: 14 } }>적립 예정 { won(quote.earned_points) }</Box> }
+          <Box sx={ { mt: 1, fontSize: 12, color: '#777' } }>쿠폰, 적립금을 사용한 뒤 결제 금액이 30,000원 이상이면 배송비가 무료이고, 미만이면 2,500원입니다.</Box>
         </Box>
       ) }
 

@@ -10,7 +10,7 @@ const SLIDES = [
   { image: 'main/slide/slide4.webp', title: '뉴차일드의 컬러로 완성한 윈터 슈즈', copy: '서로 다른 세 가지 감촉 뒤에 뉴차일드의 컬러를 담다' },
 ];
 const COUNT = SLIDES.length;
-const INTERVAL_MS = 1000;
+const INTERVAL_MS = 3000;
 const TRANSITION_MS = 600;
 const BAR_WIDTH = 480;
 

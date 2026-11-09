@@ -12,12 +12,11 @@ create table if not exists public.membership_grades (
   sort_order integer not null
 );
 
--- NULL = not decided yet. Fill these in once the policy is decided.
 create table if not exists public.shop_settings (
   setting_id integer primary key default 1 check (setting_id = 1),
   free_shipping_threshold integer not null default 30000,
-  default_shipping_fee integer check (default_shipping_fee >= 0),
-  free_shipping_basis text check (free_shipping_basis in ('list_price', 'sale_price'))
+  default_shipping_fee integer not null default 2500 check (default_shipping_fee >= 0),
+  point_earn_rate integer not null default 3 check (point_earn_rate between 0 and 100)
 );
 
 -- ---------- catalog ----------
@@ -240,7 +239,7 @@ create table if not exists public.payments (
   total_product_amount integer not null check (total_product_amount >= 0),
   discount_amount integer not null default 0 check (discount_amount >= 0),
   shipping_fee integer not null default 0 check (shipping_fee >= 0),
-  shipping_fee_status text not null default 'free' check (shipping_fee_status in ('free', 'charged', 'undetermined')),
+  shipping_fee_status text not null default 'free' check (shipping_fee_status in ('free', 'charged')),
   points_used integer not null default 0 check (points_used >= 0),
   final_amount integer not null check (final_amount >= 0),
   earned_points integer not null default 0 check (earned_points >= 0)
@@ -344,19 +343,24 @@ drop trigger if exists reviews_rating on public.reviews;
 create trigger reviews_rating after insert or update or delete on public.reviews
   for each row execute function private.refresh_product_rating();
 
--- Grade counts only real paid amounts. Mock payments are excluded.
+-- Grade counts real paid amounts of the last 3 months. Mock payments are excluded.
+create or replace function private.recent_paid_amount(p_user bigint) returns bigint
+language sql stable set search_path = '' as $$
+  select coalesce(sum(pay.final_amount), 0)::bigint
+  from public.payments pay join public.orders o using (order_id)
+  where o.user_id = p_user and pay.pay_status = 'paid' and not pay.is_mock
+    and pay.paid_at >= now() - interval '3 months';
+$$;
+
 create or replace function private.refresh_user_grade() returns trigger
 language plpgsql set search_path = '' as $$
-declare v_user bigint; v_total bigint;
+declare v_user bigint;
 begin
   select user_id into v_user from public.orders where order_id = new.order_id;
   if v_user is null then return null; end if;
-  select coalesce(sum(pay.final_amount), 0) into v_total
-  from public.payments pay join public.orders o using (order_id)
-  where o.user_id = v_user and pay.pay_status = 'paid' and not pay.is_mock;
   update public.users set grade_code = (
     select grade_code from public.membership_grades
-    where min_purchase_amount <= v_total order by min_purchase_amount desc limit 1
+    where min_purchase_amount <= private.recent_paid_amount(v_user) order by min_purchase_amount desc limit 1
   ) where user_id = v_user;
   return null;
 end $$;

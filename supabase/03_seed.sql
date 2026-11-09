@@ -143,11 +143,11 @@ select setval(pg_get_serial_sequence('public.coupons', 'coupon_id'), 100, true);
 
 -- Demo member for checking My Page. Every payment below is a mock.
 do $$
-declare v_user bigint; v_order bigint; r record;
+declare v_user bigint; v_order bigint; v_fee integer; r record;
 begin
   if exists (select 1 from public.users where login_id = 'testuser01') then return; end if;
   insert into public.users (login_id, name, phone_landline, phone_mobile, email, address, birth_date, points, sms_opt_in, email_opt_in, lifetime_member_agreed, required_terms_agreed_at)
-  values ('testuser01', '홍길동', '02-000-0000', '010-0000-0000', 'testuser01@example.com', '서울특별시 테스트구 샘플로 1', '2000-01-01', 3000, true, false, true, now())
+  values ('testuser01', '홍길동', '02-000-0000', '010-0000-0000', 'testuser01@example.com', '서울특별시 테스트구 샘플로 1', '2000-01-01', 16336, true, false, true, now())
   returning user_id into v_user;
   insert into private.user_credentials (user_id, password_hash) values (v_user, extensions.crypt('Test1234!', extensions.gen_salt('bf', 10)));
   insert into public.user_coupons (user_id, coupon_id, expires_at)
@@ -174,14 +174,16 @@ begin
     insert into public.order_items (order_id, product_id, product_name, image_url, size, color, quantity, unit_price)
     select v_order, p.product_id, p.name, p.main_image_url, 'M', (select option_value from public.product_options o where o.product_id = p.product_id and o.option_type = 'color' limit 1), 1, p.sale_price
     from public.products p where p.product_id = r.product;
-    insert into public.payments (payment_number, order_id, pay_method, pay_status, is_mock, paid_at, total_product_amount, discount_amount, shipping_fee, shipping_fee_status, final_amount)
+    v_fee := case when r.amount >= 30000 then 0 else 2500 end;
+    insert into public.payments (payment_number, order_id, pay_method, pay_status, is_mock, paid_at, total_product_amount, discount_amount, shipping_fee, shipping_fee_status, final_amount, earned_points)
     values ('MOCK-DEMO-' || r.n, v_order, case when r.st = 'pending_payment' then 'bank_transfer' else 'card' end,
       case when r.st = 'pending_payment' then 'pending' else 'mock_paid' end, true,
-      case when r.st <> 'pending_payment' then now() - make_interval(days => r.ago) end, r.amount, 0, 0, 'undetermined', r.amount);
+      case when r.st <> 'pending_payment' then now() - make_interval(days => r.ago) end, r.amount, 0, v_fee,
+      case when v_fee = 0 then 'free' else 'charged' end, r.amount + v_fee, (r.amount + v_fee) * 3 / 100);
     if r.n in (5, 6) then
       insert into public.order_claims (order_id, claim_type, claim_status) values (v_order, case r.n when 5 then 'exchange' else 'return' end, '[테스트] 접수');
     end if;
     insert into public.point_transactions (user_id, order_id, amount, point_status, description, created_at)
-    values (v_user, v_order, 500, 'available', '[테스트] 샘플 적립 내역', now() - make_interval(days => r.ago));
+    values (v_user, v_order, (r.amount + v_fee) * 3 / 100, case when r.st = 'pending_payment' then 'unavailable' else 'available' end, '[테스트] 샘플 적립 내역', now() - make_interval(days => r.ago));
   end loop;
 end $$;
