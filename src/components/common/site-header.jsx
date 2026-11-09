@@ -33,8 +33,6 @@ function SiteHeader({ isMain }) {
   const isLight = isMain && !isHover;
   const textColor = isLight ? '#fff' : '#333';
   const iconFilter = isLight ? 'none' : 'brightness(0.2)';
-  /** 서브 페이지 배경은 흰색이라 흰 로고가 보이지 않으므로 기본 로고를 유지한다. */
-  const logoFile = isMain && isHover ? 'logo_white.png' : 'logo.png';
 
   const handleLeave = () => {
     setIsHover(false);
@@ -58,7 +56,7 @@ function SiteHeader({ isMain }) {
     >
       <Box sx={ { height: 90, px: `${ SIDE_PADDING }px`, display: 'flex', alignItems: 'center' } }>
         <RouterLink to="/" aria-label="NewChild 메인으로 이동">
-          <Box component="img" src={ assetUrl(logoFile) } alt="NewChild" sx={ { width: LOGO_WIDTH, height: 80, objectFit: 'contain' } } />
+          <Box component="img" src={ assetUrl('logo.png') } alt="NewChild" sx={ { width: LOGO_WIDTH, height: 80, objectFit: 'contain' } } />
         </RouterLink>
 
         <Box component="nav" onMouseEnter={ () => setIsGnbOpen(true) } sx={ { display: 'flex', ml: `${ NAV_OFFSET }px`, height: '100%', alignItems: 'center' } }>
