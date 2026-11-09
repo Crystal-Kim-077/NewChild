@@ -71,7 +71,8 @@ function HeroSlider() {
         )) }
       </Box>
 
-      <Box sx={ { position: 'absolute', left: 46, right: 46, bottom: 44, color: '#fff' } }>
+      { /* right: 우측 고정 버튼(탑, 최근 본 상품)에 화살표가 가려지지 않도록 비워 둔다. */ }
+      <Box sx={ { position: 'absolute', left: 46, right: 100, bottom: 44, color: '#fff' } }>
         <Box sx={ { fontSize: '32pt', fontWeight: 700, lineHeight: 1.25, maxWidth: '50%', wordBreak: 'keep-all' } }>{ SLIDES[current].title }</Box>
         <Box sx={ { mt: '25px', fontSize: 18 } }>{ SLIDES[current].copy }</Box>
         <Box sx={ { mt: 4, display: 'flex', alignItems: 'center', gap: 3 } }>
