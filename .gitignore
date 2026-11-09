@@ -1,0 +1,17 @@
+node_modules
+dist
+dist-ssr
+*.local
+*.log
+.env
+.env.*
+!.env.example
+.mcp.json
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+
+# 레이아웃 참고 시안 (사이트에 사용하지 않음)
+/*layout.jpg
+/filter.jpg
