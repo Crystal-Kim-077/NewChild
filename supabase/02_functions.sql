@@ -239,16 +239,12 @@ begin
   return private.start_session(v_user, p_device, v_is_new);
 end $$;
 
--- The member's cart stays stored; a copy stays viewable on this browser after logout.
+-- The member's cart stays stored on the member (shown again at next login); this browser's cart is emptied at logout.
 create or replace function public.log_out(p_token text, p_device text default null) returns void
 language plpgsql security definer set search_path = '' as $$
-declare v_user bigint := private.optional_user(p_token); v_dev text;
 begin
   if p_device is not null then
-    v_dev := private.device_hash(p_device);
-    delete from public.cart_items where device_hash = v_dev;
-    insert into public.cart_items (device_hash, origin_user_id, product_id, size, color, quantity)
-    select v_dev, v_user, product_id, size, color, quantity from public.cart_items where user_id = v_user;
+    delete from public.cart_items where device_hash = private.device_hash(p_device);
   end if;
   delete from private.user_sessions where token_hash = private.hash_token(p_token);
 end $$;

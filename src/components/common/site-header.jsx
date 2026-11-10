@@ -98,7 +98,7 @@ function SiteHeader({ isMain }) {
                   { user
                     ? <ButtonBase sx={ myLinkSx } onClick={ handleLogout }>로그아웃</ButtonBase>
                     : <Box component={ RouterLink } to="/login" sx={ myLinkSx }>로그인</Box> }
-                  <Box component={ RouterLink } to="/signup" sx={ myLinkSx }>회원가입</Box>
+                  { !user && <Box component={ RouterLink } to="/signup" sx={ myLinkSx }>회원가입</Box> }
                 </Box>
               </Collapse>
             </Box>

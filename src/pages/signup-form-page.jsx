@@ -1,9 +1,10 @@
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Checkbox from '@mui/material/Checkbox';
 import FormControlLabel from '@mui/material/FormControlLabel';
+import AddressSearchDialog from '../components/ui/address-search-dialog.jsx';
 import LabeledField from '../components/ui/labeled-field.jsx';
 import SoftField from '../components/ui/soft-field.jsx';
 import TestNotice from '../components/ui/test-notice.jsx';
@@ -11,7 +12,7 @@ import { useShop } from '../hooks/use-shop.js';
 import { checkLoginId, signUp } from '../utils/api.js';
 
 const EMPTY_FORM = {
-  name: '', login_id: '', password: '', passwordConfirm: '', email: '', phone_landline: '', phone_mobile: '', address: '', birth_date: '',
+  name: '', login_id: '', password: '', passwordConfirm: '', email: '', phone_landline: '', phone_mobile: '', zipcode: '', address_base: '', address_detail: '', birth_date: '',
 };
 const TERMS = [
   { key: 'service', label: '[필수] 이용약관 동의' },
@@ -32,9 +33,15 @@ function SignupFormPage() {
   const [terms, setTerms] = useState({ service: false, privacy: false, marketing: false });
   const [error, setError] = useState('');
   const [isBusy, setIsBusy] = useState(false);
+  const [isAddressOpen, setIsAddressOpen] = useState(false);
 
   const isAllTerms = TERMS.every(({ key }) => terms[key]);
   const field = (key) => ({ value: form[key], onChange: (value) => setForm({ ...form, [key]: value }), fontSize: '12pt' });
+
+  const handleAddressSelect = useCallback(({ zipcode, address }) => {
+    setForm((prev) => ({ ...prev, zipcode, address_base: address }));
+    setIsAddressOpen(false);
+  }, []);
 
   const handleCheckId = async () => {
     if (!/^[A-Za-z0-9_]{4,20}$/.test(form.login_id)) {
@@ -68,8 +75,11 @@ function SignupFormPage() {
     setError('');
     try {
       /** 비밀번호 확인값은 서버로 보내지 않는다. */
-      const payload = { ...form };
-      delete payload.passwordConfirm;
+      /** 우편번호·기본 주소·상세 주소는 하나의 배송지 문자열로 합쳐 저장한다. */
+      const { passwordConfirm: _passwordConfirm, zipcode, address_base: addressBase, address_detail: addressDetail, ...payload } = form;
+      payload.address = addressBase.trim()
+        ? [zipcode.trim() && `(${ zipcode.trim() })`, addressBase.trim(), addressDetail.trim()].filter(Boolean).join(' ')
+        : '';
       const session = await signUp({
         ...payload,
         lifetime_member_agreed: isLifetime,
@@ -103,7 +113,24 @@ function SignupFormPage() {
         <LabeledField label="비밀번호 확인" isRequired><SoftField { ...field('passwordConfirm') } type="password" autoComplete="new-password" /></LabeledField>
         <LabeledField label="일반전화"><SoftField { ...field('phone_landline') } /></LabeledField>
         <LabeledField label="휴대전화" isRequired><SoftField { ...field('phone_mobile') } /></LabeledField>
-        <LabeledField label="기본 배송지"><SoftField { ...field('address') } /></LabeledField>
+        <LabeledField label="기본 배송지">
+          <Box sx={ { display: 'flex', flexDirection: 'column', gap: 1 } }>
+            <Box sx={ { display: 'flex', gap: 0.5 } }>
+              <SoftField { ...field('zipcode') } placeholder="우편번호" autoComplete="postal-code" />
+              <Button
+                type="button"
+                variant="contained"
+                disableElevation
+                onClick={ () => setIsAddressOpen(true) }
+                sx={ { flexShrink: 0, width: 110, bgcolor: '#444', color: '#fff', fontSize: 15, '&:hover': { bgcolor: '#333' } } }
+              >
+                주소검색
+              </Button>
+            </Box>
+            <SoftField { ...field('address_base') } placeholder="기본 주소" autoComplete="address-line1" />
+            <SoftField { ...field('address_detail') } placeholder="상세 주소" autoComplete="address-line2" />
+          </Box>
+        </LabeledField>
         <LabeledField label="생년월일"><SoftField { ...field('birth_date') } type="date" /></LabeledField>
         <LabeledField label="평생 회원">
           <FormControlLabel control={ <Checkbox checked={ isLifetime } onChange={ (event) => setIsLifetime(event.target.checked) } /> } label="평생 회원에 동의합니다" />
@@ -121,6 +148,7 @@ function SignupFormPage() {
         </Box>
         { error && <Box role="alert" sx={ { color: 'error.main', fontSize: 14, mt: 2 } }>{ error }</Box> }
         <Button type="submit" variant="contained" disableElevation fullWidth disabled={ isBusy } sx={ { height: 56, mt: 3, fontSize: 17, fontWeight: 700 } }>회원가입</Button>
+        <AddressSearchDialog isOpen={ isAddressOpen } onClose={ () => setIsAddressOpen(false) } onSelect={ handleAddressSelect } />
       </Box>
     </Box>
   );
