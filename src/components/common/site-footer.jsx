@@ -1,8 +1,8 @@
 import Box from '@mui/material/Box';
 import { assetUrl } from '../../utils/format.js';
 
-const titleSx = { fontSize: '16pt', fontWeight: 700, mb: 1.5 };
-const bodySx = { fontSize: '14pt', fontWeight: 400, lineHeight: 1.6 };
+const titleSx = { fontSize: 15, fontWeight: 700, mb: 1.5 };
+const bodySx = { fontSize: 13, fontWeight: 400, lineHeight: 1.6 };
 const linkSx = { ...bodySx, display: 'block', textDecoration: 'underline', color: '#333' };
 
 /** 사이트 공통 푸터. 회사 정보는 테스트용 샘플 문구다. */

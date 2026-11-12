@@ -44,7 +44,7 @@ function NewInSection() {
         <TabButtons tabs={ TABS } value={ tab } onChange={ handleTab } />
         <Box sx={ { display: 'flex', alignItems: 'center', gap: 2 } }>
           <CarouselArrows carousel={ carousel } />
-          <Box component={ RouterLink } to="/category/new" sx={ { fontSize: 15, color: 'secondary.main' } }>+더보기</Box>
+          <Box component={ RouterLink } to="/category/new" sx={ { fontSize: 15, color: '#777' } }>+더보기</Box>
         </Box>
       </Box>
       { products.length === 0 && <Box sx={ { py: 8, color: '#777' } }>등록된 상품이 없습니다.</Box> }

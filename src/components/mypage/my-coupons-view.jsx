@@ -23,7 +23,7 @@ function MyCouponsView() {
   return (
     <Box>
       <Box sx={ { mb: 2.5, fontWeight: 700 } }>
-        사용가능 쿠폰 <Box component="span" sx={ { color: COLORS.primary } }>{ data.available_count ?? 0 }장</Box>
+        사용가능 쿠폰 <Box component="span" sx={ { color: COLORS.text } }>{ data.available_count ?? 0 }장</Box>
       </Box>
       { error && <Box role="alert" sx={ { color: 'error.main', mb: 1.5 } }>{ error }</Box> }
       <MyTable columns={ COLUMNS } rows={ data.rows } getRowKey={ (row) => row.user_coupon_id } />

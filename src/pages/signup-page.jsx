@@ -17,7 +17,7 @@ function SignupPage() {
         <SnsButtons next={ next } />
         <ButtonBase
           onClick={ () => navigate(`/signup/form?next=${ encodeURIComponent(next) }`) }
-          sx={ { width: '100%', height: 54, mt: 1.25, borderRadius: '10px', bgcolor: 'primary.main', color: '#333', fontSize: 15, fontWeight: 600 } }
+          sx={ { width: '100%', height: 54, mt: 1.25, borderRadius: '10px', bgcolor: '#292929', color: '#fff', fontSize: 15, fontWeight: 600 } }
         >
           이메일 회원가입
         </ButtonBase>

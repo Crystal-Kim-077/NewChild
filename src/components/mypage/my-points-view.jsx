@@ -30,7 +30,7 @@ function MyPointsView() {
         { summary.map(([label, amount]) => (
           <Box key={ label } sx={ { flex: 1, textAlign: 'center', py: 3 } }>
             <Box sx={ { fontWeight: 700, mb: 1 } }>{ label }</Box>
-            <Box sx={ { color: COLORS.primary, fontWeight: 700 } }>{ won(amount) }</Box>
+            <Box sx={ { color: COLORS.text, fontWeight: 700 } }>{ won(amount) }</Box>
           </Box>
         )) }
       </Box>

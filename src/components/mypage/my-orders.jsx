@@ -6,7 +6,7 @@ import MyTable from './my-table.jsx';
 import PaginationBar from '../ui/pagination-bar.jsx';
 import { usePagedList } from '../../hooks/use-paged-list.js';
 import { listOrders } from '../../utils/api.js';
-import { CLAIM_LABELS, formatDate, ORDER_STATUS_LABELS } from '../../utils/format.js';
+import { assetUrl, CLAIM_LABELS, formatDate, ORDER_STATUS_LABELS } from '../../utils/format.js';
 
 const TABS = [{ value: 'orders', label: '주문내역' }, { value: 'claims', label: '교환/반품조회' }];
 const PERIODS = [
@@ -43,7 +43,14 @@ const COLUMNS = [
     label: '상품명',
     render: (row) => {
       const [first, ...others] = row.items;
-      return others.length ? `${ first.product_name } 외 ${ others.length }건` : first.product_name;
+      return (
+        <Box sx={ { display: 'inline-flex', alignItems: 'center', gap: 1 } }>
+          { first.image_url && (
+            <Box component="img" src={ assetUrl(first.image_url) } alt="" sx={ { width: 20, height: 20, objectFit: 'cover', flexShrink: 0 } } />
+          ) }
+          { others.length ? `${ first.product_name } 외 ${ others.length }건` : first.product_name }
+        </Box>
+      );
     },
   },
   {

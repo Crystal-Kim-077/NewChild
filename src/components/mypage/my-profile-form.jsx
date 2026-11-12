@@ -3,6 +3,7 @@ import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Checkbox from '@mui/material/Checkbox';
 import FormControlLabel from '@mui/material/FormControlLabel';
+import ContactVerifyField from './contact-verify-field.jsx';
 import LabeledField from '../ui/labeled-field.jsx';
 import SoftField from '../ui/soft-field.jsx';
 import { useShop } from '../../hooks/use-shop.js';
@@ -33,12 +34,24 @@ function MyProfileForm() {
   const [password, setPassword] = useState('');
   const [passwordConfirm, setPasswordConfirm] = useState('');
   const [error, setError] = useState('');
+  /** 인증을 마친 이메일/휴대전화 값. 입력값이 바뀌면 다시 인증해야 한다. */
+  const [verified, setVerified] = useState({ email: '', phone: '' });
   const field = (key) => ({ value: form[key], onChange: (value) => setForm({ ...form, [key]: value }), fontSize: FIELD_SIZE });
 
   const handleSubmit = async (event) => {
     event.preventDefault();
     if (password !== passwordConfirm) {
       setError('비밀번호와 비밀번호 확인이 일치하지 않습니다.');
+      return;
+    }
+    const email = form.email.trim();
+    const phone = form.phone_mobile.trim();
+    if (email && email !== (user.email ?? '') && verified.email !== email) {
+      setError('변경한 이메일의 인증을 완료해 주세요.');
+      return;
+    }
+    if (phone && phone !== (user.phone_mobile ?? '') && verified.phone !== phone) {
+      setError('변경한 휴대전화의 인증을 완료해 주세요.');
       return;
     }
     try {
@@ -64,9 +77,24 @@ function MyProfileForm() {
       <LabeledField label="이름"><SoftField value={ user.name } onChange={ noop } isDisabled fontSize={ FIELD_SIZE } /></LabeledField>
       <LabeledField label="주소"><SoftField { ...field('address') } /></LabeledField>
       <LabeledField label="일반전화"><SoftField { ...field('phone_landline') } /></LabeledField>
-      <LabeledField label="휴대전화"><SoftField { ...field('phone_mobile') } /></LabeledField>
+      <LabeledField label="휴대전화">
+        <ContactVerifyField
+          kind="phone"
+          { ...field('phone_mobile') }
+          originalValue={ user.phone_mobile }
+          onVerified={ (value) => setVerified((prev) => ({ ...prev, phone: value })) }
+        />
+      </LabeledField>
       <LabeledField label="SMS 수신여부">{ optInRow(form.sms_opt_in, (value) => setForm({ ...form, sms_opt_in: value })) }</LabeledField>
-      <LabeledField label="이메일"><SoftField { ...field('email') } type="email" /></LabeledField>
+      <LabeledField label="이메일">
+        <ContactVerifyField
+          kind="email"
+          type="email"
+          { ...field('email') }
+          originalValue={ user.email }
+          onVerified={ (value) => setVerified((prev) => ({ ...prev, email: value })) }
+        />
+      </LabeledField>
       <LabeledField label="이메일 수신여부">{ optInRow(form.email_opt_in, (value) => setForm({ ...form, email_opt_in: value })) }</LabeledField>
       <LabeledField label="생년월일"><SoftField value={ user.birth_date ?? '' } onChange={ noop } isDisabled fontSize={ FIELD_SIZE } /></LabeledField>
       { error && <Box role="alert" sx={ { color: 'error.main', my: 1 } }>{ error }</Box> }

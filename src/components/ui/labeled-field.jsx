@@ -7,12 +7,13 @@ import Box from '@mui/material/Box';
  * @param {string} label - 라벨 [Required]
  * @param {boolean} isRequired - 필수 표시 여부 [Optional, 기본값: false]
  * @param {string} hint - 입력 영역 아래 안내 문구 [Optional]
+ * @param {string} hintColor - 안내 문구 색상 [Optional, 기본값: #777]
  * @param {node} children - 입력 요소 [Required]
  *
  * Example usage:
  * <LabeledField label="이름" isRequired><SoftField /></LabeledField>
  */
-function LabeledField({ label, isRequired = false, hint, children }) {
+function LabeledField({ label, isRequired = false, hint, hintColor = '#777', children }) {
   return (
     <Box sx={ { display: 'grid', gridTemplateColumns: '160px 1fr', alignItems: 'center', columnGap: 2, py: 1 } }>
       <Box sx={ { fontWeight: 600 } }>
@@ -21,7 +22,7 @@ function LabeledField({ label, isRequired = false, hint, children }) {
       </Box>
       <Box>
         { children }
-        { hint && <Box sx={ { mt: 0.75, fontSize: 12, color: '#777' } }>{ hint }</Box> }
+        { hint && <Box sx={ { mt: 0.75, fontSize: 12, color: hintColor } }>{ hint }</Box> }
       </Box>
     </Box>
   );

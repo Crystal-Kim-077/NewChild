@@ -14,11 +14,21 @@ import { checkLoginId, signUp } from '../utils/api.js';
 const EMPTY_FORM = {
   name: '', login_id: '', password: '', passwordConfirm: '', email: '', phone_landline: '', phone_mobile: '', zipcode: '', address_base: '', address_detail: '', birth_date: '',
 };
+const ID_AVAILABLE = '사용 가능한 아이디입니다.';
+const WARNING_COLOR = '#DC143C';
 const TERMS = [
   { key: 'service', label: '[필수] 이용약관 동의' },
   { key: 'privacy', label: '[필수] 개인정보 수집 및 이용 동의' },
   { key: 'marketing', label: '[선택] 마케팅 정보 수신 동의(SMS, 이메일)' },
 ];
+
+/** 비밀번호 권장사항(영문 대소문자, 특수문자 포함 8자 이상) 미충족 시 안내 문구. 충족하면 빈 문자열. */
+const passwordWarning = (value) => {
+  if (!value) return '';
+  if (value.length < 8) return '8자 이상 작성해 주세요.';
+  const isRecommended = /[a-z]/.test(value) && /[A-Z]/.test(value) && /[^A-Za-z0-9]/.test(value);
+  return isRecommended ? '' : '권장사항을 준수해 비밀번호를 입력해 주세요.';
+};
 
 /** 이메일 회원가입 정보 입력 페이지. */
 function SignupFormPage() {
@@ -51,7 +61,7 @@ function SignupFormPage() {
     try {
       const isAvailable = await checkLoginId(form.login_id);
       setCheckedId(isAvailable ? form.login_id : '');
-      setIdMessage(isAvailable ? '사용 가능한 아이디입니다.' : '이미 사용 중인 아이디입니다.');
+      setIdMessage(isAvailable ? ID_AVAILABLE : '이미 사용 중인 아이디입니다.');
     } catch (requestError) {
       setIdMessage(requestError.message);
     }
@@ -102,7 +112,7 @@ function SignupFormPage() {
           <TestNotice>테스트용 가입입니다. 실제 개인정보를 입력하지 마세요.</TestNotice>
         </Box>
         <LabeledField label="이름" isRequired><SoftField { ...field('name') } autoComplete="name" /></LabeledField>
-        <LabeledField label="아이디" isRequired hint={ idMessage }>
+        <LabeledField label="아이디" isRequired hint={ idMessage } hintColor={ idMessage === ID_AVAILABLE ? '#0056B3' : undefined }>
           <Box sx={ { display: 'flex', gap: 1 } }>
             <SoftField { ...field('login_id') } autoComplete="username" />
             <Button type="button" variant="outlined" color="inherit" onClick={ handleCheckId } sx={ { flexShrink: 0, width: 110, borderColor: '#333' } }>중복확인</Button>
@@ -110,7 +120,7 @@ function SignupFormPage() {
         </LabeledField>
         <LabeledField label="이메일" isRequired><SoftField { ...field('email') } type="email" autoComplete="email" /></LabeledField>
         <LabeledField label="비밀번호" isRequired hint="영문 대소문자 및 특수문자 포함 8자 이상을 권장합니다."><SoftField { ...field('password') } type="password" autoComplete="new-password" /></LabeledField>
-        <LabeledField label="비밀번호 확인" isRequired><SoftField { ...field('passwordConfirm') } type="password" autoComplete="new-password" /></LabeledField>
+        <LabeledField label="비밀번호 확인" isRequired hint={ passwordWarning(form.passwordConfirm) } hintColor={ WARNING_COLOR }><SoftField { ...field('passwordConfirm') } type="password" autoComplete="new-password" /></LabeledField>
         <LabeledField label="일반전화"><SoftField { ...field('phone_landline') } /></LabeledField>
         <LabeledField label="휴대전화" isRequired><SoftField { ...field('phone_mobile') } /></LabeledField>
         <LabeledField label="기본 배송지">

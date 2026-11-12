@@ -45,7 +45,7 @@ function MyPage() {
                 key={ item.value }
                 aria-current={ isActive ? 'page' : undefined }
                 onClick={ () => go(item.value) }
-                sx={ { height: 50, px: 3, borderRadius: '20px', fontSize: '15pt', fontWeight: 700, bgcolor: isActive ? '#333' : 'secondary.main', color: isActive ? '#fff' : '#333' } }
+                sx={ { height: 50, px: 3, borderRadius: '20px', fontSize: 16, fontWeight: 700, bgcolor: isActive ? '#333' : 'secondary.main', color: isActive ? '#fff' : '#333' } }
               >
                 { item.label }
               </ButtonBase>

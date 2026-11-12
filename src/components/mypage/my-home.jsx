@@ -1,6 +1,10 @@
 import { useNavigate } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import ButtonBase from '@mui/material/ButtonBase';
+import CheckCircleOutlinedIcon from '@mui/icons-material/CheckCircleOutlined';
+import CreditCardOutlinedIcon from '@mui/icons-material/CreditCardOutlined';
+import Inventory2OutlinedIcon from '@mui/icons-material/Inventory2Outlined';
+import LocalShippingOutlinedIcon from '@mui/icons-material/LocalShippingOutlined';
 import { useShop } from '../../hooks/use-shop.js';
 import { COLORS } from '../../theme.js';
 import { won } from '../../utils/format.js';
@@ -12,13 +16,14 @@ const LINKS = [
   { label: '회원정보', tab: 'member', subs: [['회원정보 수정', 'profile'], ['배송 주소록 관리', 'address']] },
 ];
 const STATUS = [
-  ['결제 전', 'pending_payment'],
-  ['배송준비중', 'preparing'],
-  ['배송중', 'shipping'],
-  ['배송 완료', 'delivered'],
+  ['결제 전', 'pending_payment', CreditCardOutlinedIcon],
+  ['배송준비중', 'preparing', Inventory2OutlinedIcon],
+  ['배송중', 'shipping', LocalShippingOutlinedIcon],
+  ['배송 완료', 'delivered', CheckCircleOutlinedIcon],
 ];
 
-const point = (text) => <Box component="span" sx={ { color: COLORS.primary, fontWeight: 700 } }>{ text }</Box>;
+/** 강조 문구는 노란색 대신 진한 회색 굵은 글씨로 표시한다(가독성, 눈의 피로 감소). */
+const point = (text) => <Box component="span" sx={ { color: COLORS.text, fontWeight: 700 } }>{ text }</Box>;
 const borderSx = { borderBottom: '1px solid', borderColor: 'secondary.main' };
 
 /**
@@ -42,12 +47,12 @@ function MyHome({ user, onGo }) {
 
   return (
     <Box>
-      <Box sx={ { ...borderSx, px: 2, py: 4, lineHeight: 1.8 } }>
+      <Box sx={ { ...borderSx, px: 2, py: 4, lineHeight: 1.8, fontSize: 15 } }>
         { point(user.name) } 님 반갑습니다. 저희 쇼핑몰을 이용해 주셔서 감사합니다.<br />
         { point(user.name) } 님은 { point(`[${ user.grade_name }]`) } 회원이십니다.
         { user.next_grade_name && <> { point(`[${ user.next_grade_name }]`) } 까지 남은 구매금액은 { point(won(user.next_grade_remaining)) } 입니다.</> }
         { ` (최근 3개월 동안 구매금액 : ${ won(user.recent_3m_amount) })` }<br />
-        <Box component="span" sx={ { fontSize: '13pt', color: '#777' } }>
+        <Box component="span" sx={ { fontSize: 15, color: '#777' } }>
           승급 기준에 따른 예상 금액이므로 총주문 금액과 다를 수 있습니다. 모의 결제 금액({ won(user.recent_3m_mock_amount) })은 구매금액에 포함되지 않습니다.
         </Box>
       </Box>
@@ -61,14 +66,14 @@ function MyHome({ user, onGo }) {
             <ButtonBase onClick={ () => onGo(group.tab) } sx={ { fontSize: '13pt', fontWeight: 700, width: 90, justifyContent: 'flex-start' } }>{ group.label }</ButtonBase>
             <Box sx={ { display: 'flex', gap: 2.5 } }>
               { group.subs.map(([label, sub]) => (
-                <ButtonBase key={ sub } onClick={ () => onGo(group.tab, sub) } sx={ { fontSize: '13pt', '&:hover': { color: COLORS.primary } } }>{ label }</ButtonBase>
+                <ButtonBase key={ sub } onClick={ () => onGo(group.tab, sub) } sx={ { fontSize: '13pt', '&:hover': { textDecoration: 'underline' } } }>{ label }</ButtonBase>
               )) }
             </Box>
           </Box>
         )) }
       </Box>
       <Box sx={ { ...borderSx, display: 'grid', gridTemplateColumns: '1fr 1fr' } }>
-        { STATUS.map(([label, key], index) => (
+        { STATUS.map(([label, key, StatusIcon], index) => (
           <Box
             key={ key }
             sx={ {
@@ -82,8 +87,11 @@ function MyHome({ user, onGo }) {
               borderColor: 'secondary.main',
             } }
           >
-            <Box sx={ { fontWeight: 700, width: 90 } }>{ label }</Box>
-            <Box sx={ { fontSize: '13pt', color: COLORS.primary, fontWeight: 700 } }>{ user.status_counts[key] }</Box>
+            <Box sx={ { display: 'flex', alignItems: 'center', gap: 1, fontWeight: 700, width: 130 } }>
+              <StatusIcon aria-hidden sx={ { fontSize: 26, color: COLORS.text } } />
+              { label }
+            </Box>
+            <Box sx={ { fontSize: '13pt', color: COLORS.text, fontWeight: 700 } }>{ user.status_counts[key] }</Box>
           </Box>
         )) }
       </Box>

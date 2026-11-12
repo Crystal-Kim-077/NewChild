@@ -94,6 +94,13 @@ export const logOut = () => rpc('log_out', { p_token: token(), p_device: device(
 export const getMe = () => rpc('get_me', { p_token: token() });
 export const updateProfile = (profile) => rpc('update_profile', { p_token: token(), p: profile });
 export const changePassword = (password) => rpc('change_password', { p_token: token(), p_new_password: password });
+/** 회원정보 화면 진입 전 비밀번호 재확인. 비밀번호가 없는 모의 SNS 회원은 SNS 식별값으로 확인한다. */
+export const verifyPassword = (password) => rpc('verify_password', { p_token: token(), p_password: password, p_sns_secret: getSnsSecret() });
+/** 모의 인증: 실제 메일/문자는 발송하지 않고 서버가 인증번호를 돌려준다. kind = email | phone */
+export const requestContactVerification = (kind, target) => rpc('request_contact_verification', { p_token: token(), p_kind: kind, p_target: target });
+export const confirmContactVerification = (kind, target, code) => rpc('confirm_contact_verification', {
+  p_token: token(), p_kind: kind, p_target: target, p_code: code,
+});
 export const listAddresses = () => rpc('list_addresses', { p_token: token() });
 export const saveAddress = (addressId, address) => rpc('save_address', { p_token: token(), p_address_id: addressId, p: address });
 

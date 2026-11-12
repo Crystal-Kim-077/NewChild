@@ -90,7 +90,7 @@ function CategoryPage() {
           <Box sx={ { py: 12, textAlign: 'center', color: '#777', fontSize: 16 } }>조건에 맞는 상품이 없습니다.</Box>
         ) }
         <Box sx={ { display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 442px))', justifyContent: 'space-between', columnGap: '54px', rowGap: '76px' } }>
-          { result.rows.map((product) => <ProductCard key={ product.product_id } product={ product } />) }
+          { result.rows.map((product) => <ProductCard key={ product.product_id } product={ product } isDirectCart />) }
         </Box>
         <PaginationBar page={ page } total={ result.total } pageSize={ CATEGORY_PAGE_SIZE } onChange={ handlePage } />
       </Box>

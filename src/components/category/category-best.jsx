@@ -48,7 +48,7 @@ function CategoryBest({ parentSlug, title }) {
       <CarouselTrack index={ carousel.index } itemWidth={ CARD_SIZE } gap={ GAP }>
         { products.map((product) => (
           <Box key={ product.product_id } sx={ { flex: `0 0 ${ CARD_SIZE }px` } }>
-            <ProductCard product={ product } size={ CARD_SIZE } isZoomOnHover />
+            <ProductCard product={ product } size={ CARD_SIZE } isZoomOnHover isDirectCart />
           </Box>
         )) }
       </CarouselTrack>

@@ -41,6 +41,28 @@ begin
   end if;
 end $$;
 
+-- Member-info edits need a password re-check within the last 30 minutes on this session.
+create or replace function private.require_reauth(p_token text) returns bigint
+language plpgsql stable set search_path = '' as $$
+declare v_user bigint := private.require_user(p_token);
+begin
+  if not exists (select 1 from private.user_sessions where token_hash = private.hash_token(p_token)
+    and reauth_at > now() - interval '30 minutes') then
+    raise exception '보안을 위해 비밀번호를 다시 확인해 주세요.';
+  end if;
+  return v_user;
+end $$;
+
+-- A changed email / mobile number must have been verified in the last 30 minutes.
+create or replace function private.assert_contact_verified(p_user bigint, p_kind text, p_target text) returns void
+language plpgsql stable set search_path = '' as $$
+begin
+  if not exists (select 1 from private.contact_verifications where user_id = p_user and kind = p_kind
+    and target = p_target and verified_at > now() - interval '30 minutes') then
+    raise exception '%', case p_kind when 'email' then '변경한 이메일의 인증을 완료해 주세요.' else '변경한 휴대전화의 인증을 완료해 주세요.' end;
+  end if;
+end $$;
+
 -- Guest rows: merged. Rows copied from a member at logout: dropped (that member's own cart still has them).
 create or replace function private.merge_device_cart(p_user bigint, p_device_hash text) returns void
 language plpgsql set search_path = '' as $$
@@ -277,15 +299,69 @@ begin
       from public.orders where user_id = v_user));
 end $$;
 
+-- Password re-check before the member-info edit screen. Mock SNS members (no password) re-check with their SNS secret.
+create or replace function public.verify_password(p_token text, p_password text, p_sns_secret text default null) returns void
+language plpgsql security definer set search_path = '' as $$
+declare v_user bigint := private.require_user(p_token); v_hash text;
+begin
+  select password_hash into v_hash from private.user_credentials where user_id = v_user;
+  if v_hash is not null then
+    if p_password is null or extensions.crypt(p_password, v_hash) <> v_hash then raise exception '비밀번호가 일치하지 않습니다.'; end if;
+  elsif p_sns_secret is null or length(p_sns_secret) < 32 or not exists (select 1 from private.mock_sns_identities
+    where user_id = v_user and device_hash = private.device_hash(p_sns_secret)) then
+    raise exception 'SNS 계정 확인에 실패했습니다. 다시 로그인해 주세요.';
+  end if;
+  update private.user_sessions set reauth_at = now() where token_hash = private.hash_token(p_token);
+end $$;
+
+-- Mock only: no mail / SMS is sent. The code is returned so the test screen can show it.
+create or replace function public.request_contact_verification(p_token text, p_kind text, p_target text) returns text
+language plpgsql security definer set search_path = '' as $$
+declare v_user bigint := private.require_reauth(p_token); v_target text := trim(coalesce(p_target, '')); v_code text;
+begin
+  if p_kind not in ('email', 'phone') then raise exception '지원하지 않는 인증입니다.'; end if;
+  if p_kind = 'email' and v_target !~ '^[^@\s]+@[^@\s]+\.[^@\s]+$' then raise exception '이메일 형식을 확인해 주세요.'; end if;
+  if p_kind = 'phone' and v_target !~ '^01[0-9]-?[0-9]{3,4}-?[0-9]{4}$' then raise exception '휴대전화 번호 형식을 확인해 주세요.'; end if;
+  if exists (select 1 from private.contact_verifications where user_id = v_user and kind = p_kind and created_at > now() - interval '10 seconds') then
+    raise exception '잠시 후 다시 요청해 주세요.';
+  end if;
+  delete from private.contact_verifications where user_id = v_user and kind = p_kind and verified_at is null;
+  v_code := lpad(floor(random() * 1000000)::int::text, 6, '0');
+  insert into private.contact_verifications (user_id, kind, target, code_hash, expires_at)
+  values (v_user, p_kind, v_target, private.hash_token(v_code), now() + interval '3 minutes');
+  return v_code;
+end $$;
+
+-- Five wrong tries expire the code.
+create or replace function public.confirm_contact_verification(p_token text, p_kind text, p_target text, p_code text) returns boolean
+language plpgsql security definer set search_path = '' as $$
+declare v_user bigint := private.require_reauth(p_token); v_row private.contact_verifications;
+begin
+  select * into v_row from private.contact_verifications
+  where user_id = v_user and kind = p_kind and target = trim(coalesce(p_target, '')) and verified_at is null and expires_at > now() and attempts < 5
+  order by created_at desc limit 1;
+  if v_row.verification_id is null then raise exception '인증번호가 만료되었습니다. 다시 요청해 주세요.'; end if;
+  if private.hash_token(trim(coalesce(p_code, ''))) <> v_row.code_hash then
+    update private.contact_verifications set attempts = attempts + 1 where verification_id = v_row.verification_id;
+    return false;
+  end if;
+  update private.contact_verifications set verified_at = now() where verification_id = v_row.verification_id;
+  return true;
+end $$;
+
 -- login_id, name and birth_date are deliberately not updatable.
 create or replace function public.update_profile(p_token text, p jsonb) returns void
 language plpgsql security definer set search_path = '' as $$
-declare v_user bigint := private.require_user(p_token);
+declare v_user bigint := private.require_reauth(p_token); v_u public.users;
+  v_email text := nullif(trim(coalesce(p ->> 'email', '')), ''); v_phone text := nullif(trim(coalesce(p ->> 'phone_mobile', '')), '');
 begin
-  if coalesce(p ->> 'email', '') <> '' and p ->> 'email' !~ '^[^@\s]+@[^@\s]+\.[^@\s]+$' then raise exception '이메일 형식을 확인해 주세요.'; end if;
+  if v_email is not null and v_email !~ '^[^@\s]+@[^@\s]+\.[^@\s]+$' then raise exception '이메일 형식을 확인해 주세요.'; end if;
+  select * into v_u from public.users where user_id = v_user;
+  if v_email is not null and v_email is distinct from v_u.email then perform private.assert_contact_verified(v_user, 'email', v_email); end if;
+  if v_phone is not null and v_phone is distinct from v_u.phone_mobile then perform private.assert_contact_verified(v_user, 'phone', v_phone); end if;
   update public.users set
     address = nullif(p ->> 'address', ''), phone_landline = nullif(p ->> 'phone_landline', ''),
-    phone_mobile = nullif(p ->> 'phone_mobile', ''), email = nullif(p ->> 'email', ''),
+    phone_mobile = v_phone, email = v_email,
     sms_opt_in = coalesce((p ->> 'sms_opt_in')::boolean, false),
     email_opt_in = coalesce((p ->> 'email_opt_in')::boolean, false)
   where user_id = v_user;
@@ -293,7 +369,7 @@ end $$;
 
 create or replace function public.change_password(p_token text, p_new_password text) returns void
 language plpgsql security definer set search_path = '' as $$
-declare v_user bigint := private.require_user(p_token);
+declare v_user bigint := private.require_reauth(p_token);
 begin
   perform private.check_password(p_new_password);
   insert into private.user_credentials (user_id, password_hash)
@@ -518,7 +594,7 @@ language sql stable security definer set search_path = '' as $$
     'order_number', p.order_number, 'ordered_at', p.ordered_at, 'order_status', p.order_status,
     'is_mock', (select pay.is_mock from public.payments pay where pay.order_id = p.order_id),
     'final_amount', (select pay.final_amount from public.payments pay where pay.order_id = p.order_id),
-    'items', (select jsonb_agg(jsonb_build_object('product_name', i.product_name, 'size', i.size, 'color', i.color, 'quantity', i.quantity) order by i.order_item_id) from public.order_items i where i.order_id = p.order_id),
+    'items', (select jsonb_agg(jsonb_build_object('product_name', i.product_name, 'image_url', i.image_url, 'size', i.size, 'color', i.color, 'quantity', i.quantity) order by i.order_item_id) from public.order_items i where i.order_id = p.order_id),
     'claims', (select coalesce(jsonb_agg(jsonb_build_object('claim_type', c.claim_type, 'claim_status', c.claim_status)), '[]') from public.order_claims c where c.order_id = p.order_id)
   ) order by p.ordered_at desc, p.order_id desc), '[]'))
   from paged p;

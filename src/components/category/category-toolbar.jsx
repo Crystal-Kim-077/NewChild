@@ -35,7 +35,7 @@ function CategoryToolbar({ menu, sub, sort, total, onSub, onSort, onOpenFilter }
               key={ item.value }
               aria-pressed={ sort === item.value }
               onClick={ () => onSort(item.value) }
-              sx={ { fontSize: '14pt', fontWeight: sort === item.value ? 700 : 300 } }
+              sx={ { fontSize: 15, fontWeight: sort === item.value ? 700 : 300 } }
             >
               { item.label }
             </ButtonBase>
