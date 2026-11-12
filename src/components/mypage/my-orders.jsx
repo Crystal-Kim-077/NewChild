@@ -44,9 +44,9 @@ const COLUMNS = [
     render: (row) => {
       const [first, ...others] = row.items;
       return (
-        <Box sx={ { display: 'inline-flex', alignItems: 'center', gap: 1 } }>
+        <Box sx={ { display: 'inline-flex', alignItems: 'center', gap: 1.5 } }>
           { first.image_url && (
-            <Box component="img" src={ assetUrl(first.image_url) } alt="" sx={ { width: 20, height: 20, objectFit: 'cover', flexShrink: 0 } } />
+            <Box component="img" src={ assetUrl(first.image_url) } alt="" sx={ { width: 80, height: 80, objectFit: 'cover', objectPosition: 'center 20%', flexShrink: 0 } } />
           ) }
           { others.length ? `${ first.product_name } 외 ${ others.length }건` : first.product_name }
         </Box>
